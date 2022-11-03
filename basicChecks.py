@@ -5,6 +5,8 @@ from datetime import datetime
 
 def getRadioTime(frame):
     radioTime = frame["RadioTaxiTime"]
+    # That saves it in I3Time... do I want that ?
+    #     time_np = np.datetime64(time.date_time)
     return radioTime
 
 def getTimeFromFilename(filename):
@@ -24,29 +26,42 @@ def getIds(frame):
     eventid = frame["I3EventHeader"].event_id
     return runid, eventid
 
-def triggerType(frame):
-    print("......")
+def getTriggerType(frame):
+    flags = frame["SurfaceFilters"]
+    if flags['radio_data'].condition_passed:
+        if flags['soft_flag'].condition_passed:
+            return "soft"
+        elif not flags['soft_flag'].condition_passed:
+            return "scint"
 
 def getSerDes(frame):
     serDes = frame["RadioSerdesDelay"]
     return serDes
 
 # These should in Q-frames
-class BasicChecks(self, frame):
-    def __init__(self):
+class BasicChecks():
+    def __init__(self, frame):
+        self.outputDir = "/data/user/rturcotte/analysis/taxiNoise/testsV7/"
         self.runid = "NOTSET"
         self.evenid = "NOTSET"
         self.serDes = "NOTSET"
         self.cascadingLength = "NOTSET"
-        self.dateFromI3 = "NOTSET"
-        self.dateFromFilename = "NOTSET"
+        self.timeFromI3 = "NOTSET"
+        self.timeFromFilename = "NOTSET"
         self.roi = "NOTSET"
+        self.TriggerType = "NOTSET"
 
         self.getInfoFromFrame(frame)
-        self.runChecksFromOneFrame(frame)
+        self.runChecksFromOneFrame()
 
+    # to do .....
     def openLogFile(self):
-    
+        print("")
+        f = open('log.txt', 'w')
+        return f
+
+    def closeLogFile(self):
+        f.close()
     
     def getInfoFromFrame(self, frame):
         self.runid, self.eventid = getIds(frame)
@@ -54,10 +69,13 @@ class BasicChecks(self, frame):
         self.cascadingLength = getCascadingLength(frame)
         self.roi = getROI(frame)
         self.dateFromI3 = getRadioTime(frame)
+        self.triggerType = getTriggerType(frame)
 
     def verifyHeader(self):
-        if (self.runid <= 0) or (self.eventid <= 0):
-            print("::WARNING:: Runid or eventid is broken...value: ", self.runid, self.eventid)
+        if (self.runid <= 0):
+            print("::WARNING:: Runid is broken...value: ", self.runid)
+        if (self.eventid <= 0) and (self.triggerType is not "soft"):
+            print("::WARNING:: Eventid is broken, no IceTop coincidence ?...value: ", self.eventid)
 
     def verifySerdesDelay(self):
         if (self.serDes < 0) or (self.serDes > 1000):
@@ -73,8 +91,8 @@ class BasicChecks(self, frame):
         if np.max(self.roi) > 4096:
             print("::WARNING:: ROI has a too big value, something is fishy...")
 
+    ## I COULD DO SOMETHING LIKE VERIFYING WITH PREVIOUS ?? I'm not sure what to do here....
     def verifyRadioTime(frame, filename):
-        ## I COULD DO SOMETHING LIKE VERIFYING WITH PREVIOUS ?? I'm not sure...
         dateFromI3 = getRadioTime(frame)
         dateFromFilename = getTimeFromFilename(filename).split("-")
         dt = datetime(int(dateFromFilename[0]), int(dateFromFilename[1]), int(dateFromFilename[2]))
@@ -103,4 +121,4 @@ if __name__ == '__main__':
     for file in args.input:
         in_file = dataio.I3File(file, "r")
         for frame in in_file:
-            runChecksFromOneFrame(frame)
+            BasicChecks(frame)
