@@ -2,6 +2,7 @@ import numpy as np
 from icecube import dataio
 from datetime import datetime
 
+# Maybe looking if there is IceTop and scint ??
 
 def getRadioTime(frame):
     radioTime = frame["RadioTaxiTime"]
@@ -28,11 +29,19 @@ def getIds(frame):
 
 def getTriggerType(frame):
     flags = frame["SurfaceFilters"]
+    if flags['soft_flag'].condition_passed:
+        return "soft"
+    elif not flags['soft_flag'].condition_passed:
+        return "scint"
+        
+# something like that 
+def isRadio(frame):
+    flags = frame["SurfaceFilters"]
     if flags['radio_data'].condition_passed:
-        if flags['soft_flag'].condition_passed:
-            return "soft"
-        elif not flags['soft_flag'].condition_passed:
-            return "scint"
+        continue
+    else:
+        break
+
 
 def getSerDes(frame):
     serDes = frame["RadioSerdesDelay"]
@@ -88,8 +97,18 @@ class BasicChecks():
     def verifyROI(self):
         if len(self.roi) != 3:
             print("::WARNING:: The shape for ROI is weird")
-        if np.max(self.roi) > 4096:
-            print("::WARNING:: ROI has a too big value, something is fishy...")
+        if self.cascadingLength == 1024:
+            if np.max(self.roi) > 1024:
+                print("::WARNING:: ROI has a too big value, something is fishy...")
+        elif self.cascadingLength == 2048:
+            if np.max(self.roi) > 2048:
+                print("::WARNING:: ROI has a too big value, something is fishy...")
+        elif self.cascadingLength == 4096:
+            if np.max(self.roi) > 4096:
+                print("::WARNING:: ROI has a too big value, something is fishy...")
+        else:
+            print('::WARNING:: Cascading length weird...')
+
 
     ## I COULD DO SOMETHING LIKE VERIFYING WITH PREVIOUS ?? I'm not sure what to do here....
     def verifyRadioTime(frame, filename):
